@@ -17,7 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  SettingsIcon,
+  Settings2,
 } from "lucide-react";
 
 // Configuración de Firebase
@@ -251,6 +251,34 @@ const ProductManager = () => {
     return product.quantity || 0;
   };
 
+  // NUEVO: Función para actualizar una imagen específica del array
+  const updateImageAtIndex = (index, newUrl) => {
+    setExtraEditData((prev) => {
+      const updatedImages = [...prev.images];
+      updatedImages[index] = newUrl;
+      return {
+        ...prev,
+        images: updatedImages,
+      };
+    });
+  };
+
+  // NUEVO: Función para eliminar una imagen del array
+  const removeImageAtIndex = (index) => {
+    setExtraEditData((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
+  };
+
+  // NUEVO: Función para agregar una nueva imagen al array
+  const addNewImage = () => {
+    setExtraEditData((prev) => ({
+      ...prev,
+      images: [...prev.images, ""],
+    }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
@@ -438,7 +466,7 @@ const ProductManager = () => {
                           className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
                           title="Editar producto"
                         >
-                          <SettingsIcon className="h-6 w-6" />
+                          <Settings className="h-5 w-5" />
                         </button>
 
                         <button
@@ -490,7 +518,7 @@ const ProductManager = () => {
                   {/* Información del producto */}
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-medium font-medium text-gray-900 truncate pr-2">
+                      <h3 className="text-sm font-medium text-gray-900 truncate pr-2">
                         {product.name}
                       </h3>
                       <div className="flex gap-1 flex-shrink-0">
@@ -500,7 +528,7 @@ const ProductManager = () => {
                           className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
                           title="Editar producto"
                         >
-                          <SettingsIcon className="h-5 w-5" />
+                          <Settings className="h-5 w-5" />
                         </button>
 
                         <button
@@ -817,15 +845,15 @@ const ProductManager = () => {
                   />
                 </div>
 
-                {/* Preview de imagen */}
+                {/* Preview de imagen principal */}
                 {extraEditData.image && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Vista previa:
+                      Vista previa imagen principal:
                     </label>
                     <img
                       src={extraEditData.image}
-                      alt="Preview"
+                      alt="Preview principal"
                       className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
                       onError={(e) => {
                         e.target.style.display = "none";
@@ -833,6 +861,72 @@ const ProductManager = () => {
                     />
                   </div>
                 )}
+
+                {/* NUEVO: Sección de imágenes adicionales */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Imágenes adicionales:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addNewImage}
+                      className="text-sm bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg transition-colors"
+                    >
+                      + Agregar imagen
+                    </button>
+                  </div>
+
+                  {extraEditData.images.length > 0 && (
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {extraEditData.images.map((imageUrl, index) => (
+                        <div
+                          key={index}
+                          className="flex gap-3 items-start p-3 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <input
+                              type="url"
+                              value={imageUrl}
+                              onChange={(e) =>
+                                updateImageAtIndex(index, e.target.value)
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                              placeholder="https://ejemplo.com/imagen.jpg"
+                            />
+                            {imageUrl && (
+                              <div className="mt-2">
+                                <img
+                                  src={imageUrl}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-20 h-20 object-cover rounded border-2 border-gray-200"
+                                  onError={(e) => {
+                                    e.target.style.display = "none";
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeImageAtIndex(index)}
+                            className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                            title="Eliminar imagen"
+                          >
+                            <X className="h-6 w-6" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {extraEditData.images.length === 0 && (
+                    <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                      No hay imágenes adicionales. Haz clic en "Agregar imagen"
+                      para añadir una.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 mt-6">

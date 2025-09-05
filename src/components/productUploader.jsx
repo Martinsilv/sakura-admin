@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -54,6 +54,72 @@ const ProductUploader = () => {
     "box",
     "skincare",
   ];
+
+  // Función para guardar el estado en localStorage
+  const saveFormState = () => {
+    const formState = {
+      formData,
+      useImages,
+      additionalImages,
+      inventoryType,
+      quantity,
+      variants,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem("sakura-form-draft", JSON.stringify(formState));
+  };
+
+  // Función para cargar el estado desde localStorage
+  const loadFormState = () => {
+    try {
+      const savedState = localStorage.getItem("sakura-form-draft");
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        // Verificar que el borrador no sea muy antiguo (más de 24 horas)
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+        if (Date.now() - parsedState.timestamp < twentyFourHours) {
+          setFormData(parsedState.formData || formData);
+          setUseImages(parsedState.useImages || false);
+          setAdditionalImages(parsedState.additionalImages || [""]);
+          setInventoryType(parsedState.inventoryType || "quantity");
+          setQuantity(parsedState.quantity || "");
+          setVariants(parsedState.variants || [{ name: "", quantity: "" }]);
+        } else {
+          // Limpiar borrador antiguo
+          localStorage.removeItem("sakura-form-draft");
+        }
+      }
+    } catch (error) {
+      console.error("Error loading form state:", error);
+    }
+  };
+
+  // Cargar estado guardado al montar el componente
+  useEffect(() => {
+    loadFormState();
+  }, []);
+
+  // Guardar estado automáticamente cuando cambien los valores
+  useEffect(() => {
+    // Solo guardar si hay algo en el formulario
+    if (
+      formData.name ||
+      formData.description ||
+      formData.image ||
+      formData.price ||
+      quantity ||
+      variants.some((v) => v.name || v.quantity)
+    ) {
+      saveFormState();
+    }
+  }, [
+    formData,
+    useImages,
+    additionalImages,
+    inventoryType,
+    quantity,
+    variants,
+  ]);
 
   // Manejar cambios en el formulario principal
   const handleInputChange = (e) => {
@@ -111,6 +177,8 @@ const ProductUploader = () => {
     setQuantity("");
     setVariants([{ name: "", quantity: "" }]);
     setMessage({ type: "", text: "" });
+    // Limpiar borrador guardado
+    localStorage.removeItem("sakura-form-draft");
   };
 
   // Mostrar mensaje
@@ -193,6 +261,8 @@ const ProductUploader = () => {
       await addDoc(collection(db, "sakura-products"), product);
 
       showMessage("success", "¡Producto subido exitosamente!");
+      // Limpiar borrador después del éxito
+      localStorage.removeItem("sakura-form-draft");
       setTimeout(resetForm, 2000);
     } catch (error) {
       console.error("Error:", error);
