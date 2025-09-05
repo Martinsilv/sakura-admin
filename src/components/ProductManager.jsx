@@ -16,6 +16,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Settings,
+  SettingsIcon,
 } from "lucide-react";
 
 // Configuración de Firebase
@@ -41,7 +43,7 @@ const ProductManager = () => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [message, setMessage] = useState({ type: "", text: "" });
 
-  // Estados para modal
+  // Estados para modal de stock
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [modalData, setModalData] = useState({});
@@ -52,6 +54,11 @@ const ProductManager = () => {
     images: [],
     currentIndex: 0,
   });
+
+  // NUEVO: Estados para el modal de edición adicional
+  const [isExtraEditModalOpen, setIsExtraEditModalOpen] = useState(false);
+  const [editingExtraProduct, setEditingExtraProduct] = useState(null);
+  const [extraEditData, setExtraEditData] = useState({});
 
   // Cargar productos desde Firebase
   useEffect(() => {
@@ -105,7 +112,7 @@ const ProductManager = () => {
     setTimeout(() => setMessage({ type: "", text: "" }), 3000);
   };
 
-  // Abrir modal para editar stock
+  // Abrir modal para editar stock solamente
   const openEditModal = (product) => {
     setEditingProduct(product);
     if (product.variants) {
@@ -116,7 +123,23 @@ const ProductManager = () => {
     setIsModalOpen(true);
   };
 
-  // Guardar cambios de stock
+  // NUEVO: Abrir modal de edición adicional
+  const openExtraEditModal = (product) => {
+    setEditingExtraProduct(product);
+    setExtraEditData({
+      name: product.name || "",
+      price: product.price || 0,
+      description: product.description || "",
+      category: product.category || "",
+      quantity: product.quantity || 0,
+      variants: product.variants ? { ...product.variants } : {},
+      image: product.image || "",
+      images: product.images || [],
+    });
+    setIsExtraEditModalOpen(true);
+  };
+
+  // Guardar cambios de stock solamente
   const saveStockChanges = async () => {
     if (!editingProduct) return;
 
@@ -130,6 +153,43 @@ const ProductManager = () => {
     } catch (error) {
       console.error("Error updating stock:", error);
       showMessage("error", "Error al actualizar el stock");
+    }
+  };
+
+  // CORREGIDO: Guardar cambios del modal adicional
+  const saveExtraProductChanges = async () => {
+    if (!editingExtraProduct) return;
+
+    try {
+      const productRef = doc(db, "sakura-products", editingExtraProduct.id);
+
+      // Crear objeto con solo los campos básicos del producto
+      const updateData = {
+        name: extraEditData.name,
+        price: extraEditData.price,
+        description: extraEditData.description,
+        category: extraEditData.category,
+        image: extraEditData.image,
+        images: extraEditData.images,
+      };
+
+      // Solo agregar los campos de stock que corresponden al tipo de producto
+      if (editingExtraProduct.variants) {
+        // Si el producto tiene variantes, mantener las variantes
+        updateData.variants = extraEditData.variants;
+      } else {
+        // Si el producto tiene quantity simple, mantener quantity
+        updateData.quantity = extraEditData.quantity;
+      }
+
+      await updateDoc(productRef, updateData);
+
+      showMessage("success", "Producto actualizado correctamente");
+      setIsExtraEditModalOpen(false);
+      setEditingExtraProduct(null);
+    } catch (error) {
+      console.error("Error updating product:", error);
+      showMessage("error", "Error al actualizar el producto");
     }
   };
 
@@ -203,7 +263,7 @@ const ProductManager = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#151b23]  to-[#1e1e2f] p-2 sm:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#151b23] to-[#1e1e2f] p-2 sm:p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 mb-4 sm:mb-6">
@@ -296,7 +356,7 @@ const ProductManager = () => {
                   <th className="w-24 px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Stock
                   </th>
-                  <th className="w-24 px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-48 px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
@@ -371,13 +431,22 @@ const ProductManager = () => {
 
                     {/* Acciones */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex gap-2">
+                      <div className="flex gap-1">
+                        {/* NUEVO: Botón Editar adicional */}
+                        <button
+                          onClick={() => openExtraEditModal(product)}
+                          className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                          title="Editar producto"
+                        >
+                          <SettingsIcon className="h-6 w-6" />
+                        </button>
+
                         <button
                           onClick={() => openEditModal(product)}
                           className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                          title="Editar stock"
+                          title="Editar solo stock"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() =>
@@ -386,7 +455,7 @@ const ProductManager = () => {
                           className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                           title="Eliminar producto"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-5 w-5" />
                         </button>
                       </div>
                     </td>
@@ -420,17 +489,26 @@ const ProductManager = () => {
 
                   {/* Información del producto */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-sm font-medium text-gray-900 truncate pr-2">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-medium font-medium text-gray-900 truncate pr-2">
                         {product.name}
                       </h3>
                       <div className="flex gap-1 flex-shrink-0">
+                        {/* NUEVO: Botón Editar adicional */}
+                        <button
+                          onClick={() => openExtraEditModal(product)}
+                          className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                          title="Editar producto"
+                        >
+                          <SettingsIcon className="h-5 w-5" />
+                        </button>
+
                         <button
                           onClick={() => openEditModal(product)}
                           className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                          title="Editar stock"
+                          title="Editar solo stock"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() =>
@@ -439,7 +517,7 @@ const ProductManager = () => {
                           className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                           title="Eliminar producto"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-5 w-5" />
                         </button>
                       </div>
                     </div>
@@ -560,6 +638,212 @@ const ProductManager = () => {
                 </button>
                 <button
                   onClick={() => setIsModalOpen(false)}
+                  className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors text-sm sm:text-base"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NUEVO: Modal para editar producto adicional */}
+        {isExtraEditModalOpen && editingExtraProduct && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg sm:text-xl font-bold">
+                  Editar Producto
+                </h3>
+                <button
+                  onClick={() => setIsExtraEditModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Nombre */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre del producto:
+                  </label>
+                  <input
+                    type="text"
+                    value={extraEditData.name}
+                    onChange={(e) =>
+                      setExtraEditData((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Nombre del producto"
+                  />
+                </div>
+
+                {/* Precio */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Precio:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={extraEditData.price}
+                    onChange={(e) =>
+                      setExtraEditData((prev) => ({
+                        ...prev,
+                        price: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Precio"
+                  />
+                </div>
+
+                {/* Categoría */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Categoría:
+                  </label>
+                  <input
+                    type="text"
+                    value={extraEditData.category}
+                    onChange={(e) =>
+                      setExtraEditData((prev) => ({
+                        ...prev,
+                        category: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Categoría"
+                  />
+                </div>
+
+                {/* Descripción */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Descripción:
+                  </label>
+                  <textarea
+                    value={extraEditData.description}
+                    onChange={(e) =>
+                      setExtraEditData((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent h-20 resize-none"
+                    placeholder="Descripción del producto"
+                  />
+                </div>
+
+                {/* Stock */}
+                {editingExtraProduct.variants ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Stock por variantes:
+                    </label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {Object.keys(editingExtraProduct.variants).map(
+                        (variant) => (
+                          <div
+                            key={variant}
+                            className="flex justify-between items-center gap-3 p-2 bg-gray-50 rounded"
+                          >
+                            <span className="text-sm text-gray-700 flex-1 font-medium">
+                              {variant}:
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={extraEditData.variants?.[variant] || 0}
+                              onChange={(e) =>
+                                setExtraEditData((prev) => ({
+                                  ...prev,
+                                  variants: {
+                                    ...prev.variants,
+                                    [variant]: parseInt(e.target.value) || 0,
+                                  },
+                                }))
+                              }
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cantidad en stock:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={extraEditData.quantity}
+                      onChange={(e) =>
+                        setExtraEditData((prev) => ({
+                          ...prev,
+                          quantity: parseInt(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="Cantidad"
+                    />
+                  </div>
+                )}
+
+                {/* URL de imagen principal */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    URL de imagen principal:
+                  </label>
+                  <input
+                    type="url"
+                    value={extraEditData.image}
+                    onChange={(e) =>
+                      setExtraEditData((prev) => ({
+                        ...prev,
+                        image: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                  />
+                </div>
+
+                {/* Preview de imagen */}
+                {extraEditData.image && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Vista previa:
+                    </label>
+                    <img
+                      src={extraEditData.image}
+                      alt="Preview"
+                      className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <button
+                  onClick={saveExtraProductChanges}
+                  className="bg-purple-500 text-white py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors text-sm sm:text-base font-medium"
+                >
+                  Guardar cambios
+                </button>
+                <button
+                  onClick={() => setIsExtraEditModalOpen(false)}
                   className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors text-sm sm:text-base"
                 >
                   Cancelar

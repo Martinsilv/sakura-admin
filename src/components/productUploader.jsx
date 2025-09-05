@@ -51,6 +51,8 @@ const ProductUploader = () => {
     "peluches",
     "libreria",
     "deco",
+    "box",
+    "skincare",
   ];
 
   // Manejar cambios en el formulario principal
